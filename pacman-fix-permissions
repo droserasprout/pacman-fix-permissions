@@ -1,0 +1,79 @@
+#!/usr/bin/python
+
+from subprocess import run, PIPE, DEVNULL
+from os import lstat, chmod, getuid
+from os.path import isfile
+import logging
+import tarfile
+
+logging.basicConfig(level=logging.INFO, format='%(message)s')
+logger = logging.getLogger()
+
+if getuid():
+    logger.error("This script must be run as root.")
+    quit()
+
+
+def getTar(pkg):
+    def _open():
+        p_arch = '/var/cache/pacman/pkg/{}-{}-{}.pkg.tar.xz'.format(pkg[0], pkg[1], arch)
+        p_any = '/var/cache/pacman/pkg/{}-{}-{}.pkg.tar.xz'.format(pkg[0], pkg[1], 'any')
+        if isfile(p_arch):
+            return tarfile.open(p_arch)
+        if isfile(p_any):
+            return tarfile.open(p_any)
+        return None
+
+    arch = run(['uname', '-m'], stdout=PIPE).stdout.decode().rstrip()
+    pkg = pkg.split()
+    pkgtar = _open()
+    if pkgtar is None:
+        logger.info('=> {} package is missing, downloading'.format(pkg[0]))
+        run(['pacman', '-Swq', '--noconfirm', pkg[0]], stdout=DEVNULL)
+        pkgtar = _open()
+    if pkgtar is None:
+        raise Exception("Can't open or download '{}' package, check your internet connection".format(pkg[0]))
+    return pkgtar
+
+
+def main():
+    logger.info('==> Upgrading packages that are out-of-date')
+    res = run(['pacman', '-Syyuuq', '--noconfirm'])
+    if res.returncode:
+        quit()
+
+    logger.info('==> Parsing installed packages list')
+    pkgs = run(['pacman', '-Qn'], stdout=PIPE).stdout.decode().rstrip().split('\n')
+
+    logger.info('==> Collecting actual filesystem permissions and correct ones from packages')
+    paths = {}
+    for i in range(len(pkgs)):
+        logger.info('({}/{}) {}'.format(i+1, len(pkgs), pkgs[i]))
+        pkgtar = getTar(pkgs[i])
+        for f in pkgtar.getmembers():
+            if f.name not in ['.PKGINFO', '.BUILDINFO', '.MTREE', '.INSTALL', '.CHANGELOG']:
+                p = '/' + f.name
+                if p not in paths:
+                    old_mode = int(lstat(p).st_mode & 0o7777)
+                    new_mode = int(f.mode)
+                    if old_mode != new_mode:
+                        paths[p] = {'old_mode': old_mode,
+                                    'new_mode': new_mode}
+
+    if paths:
+        logger.info('==> Scan completed. Broken permissions in your filesystem:')
+        for p in paths.keys():
+            logging.info('{}: {} => {}'.format(p, oct(paths[p]['old_mode']), oct(paths[p]['new_mode'])))
+        logger.info('==> Apply? (yes/no)')
+        if input() in ['yes', 'y']:
+            for p in paths.keys():
+                chmod(p, paths[p]['new_mode'])
+            logger.info('==> Done!')
+        else:
+            logger.info('==> Done! (no actual changes were made)')
+    else:
+        logger.info('==> Your filesystem is fine, no action required')
+
+
+if __name__ == '__main__':
+    main()
