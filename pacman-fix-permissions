@@ -25,6 +25,7 @@ if hasattr(args, 'packages') and getattr(args, 'packages') == []:
 if hasattr(args, 'filesystem-paths') and getattr(args, 'f') == []:
     parser.error('You must pass at least one filesystem path when using -f switch')
 
+
 def getTar(pkg):
     def _open():
         p_arch = '/var/cache/pacman/pkg/{}-{}-{}.pkg.tar.xz'.format(pkg[0], pkg[1], arch)
@@ -61,7 +62,7 @@ def main():
         pkgs = run(['pacman', '-Qn'] + getattr(args, 'packages'), stdout=PIPE).stdout.decode().rstrip().split('\n')
     elif hasattr(args, 'filesystem_paths') and args.filesystem_paths:
         pkgs = [' '.join(p.rsplit(' ', 2)[1:]) for p in
-            run(['pacman', '-Qo'] + getattr(args, 'filesystem_paths'), stdout=PIPE).stdout.decode().rstrip().split('\n') if p]
+                run(['pacman', '-Qo'] + getattr(args, 'filesystem_paths'), stdout=PIPE).stdout.decode().rstrip().split('\n') if p]
         if not pkgs:
             quit()
     else:
@@ -82,9 +83,8 @@ def main():
                         if old_mode != new_mode:
                             paths[p] = {'old_mode': old_mode,
                                         'new_mode': new_mode}
-                    except FileNotFoundError as e:
+                    except FileNotFoundError:
                         logger.error('File not found: {}'.format(p))
-
 
     if paths:
         logger.info('==> Scan completed. Broken permissions in your filesystem:')
