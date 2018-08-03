@@ -1,5 +1,5 @@
 #!/usr/bin/python
-
+import argparse
 from subprocess import run, PIPE, DEVNULL
 from os import lstat, chmod, getuid
 from os.path import isfile
@@ -13,6 +13,17 @@ if getuid():
     logger.error("This script must be run as root.")
     quit()
 
+parser = argparse.ArgumentParser()
+mods = parser.add_mutually_exclusive_group(required=False)
+mods.add_argument('-a', '--all', action='store_true', help='process all installed packages (default)')
+mods.add_argument('-p', '--packages', nargs='*', help='list of package names to process', metavar='names')
+mods.add_argument('-f', '--filesystem-paths', nargs='*', help='list of filesystem paths to process', metavar='paths')
+args = parser.parse_args()
+print(args)
+if hasattr(args, 'packages') and getattr(args, 'packages') == []:
+    parser.error('You must pass at least one package name when using -p switch')
+if hasattr(args, 'filesystem-paths') and getattr(args, 'f') == []:
+    parser.error('You must pass at least one filesystem path when using -f switch')
 
 def getTar(pkg):
     def _open():
@@ -38,12 +49,23 @@ def getTar(pkg):
 
 def main():
     logger.info('==> Upgrading packages that are out-of-date')
+    res = run(['pacman', '-Fy'])
+    if res.returncode:
+        quit()
     res = run(['pacman', '-Syyuuq', '--noconfirm'])
     if res.returncode:
         quit()
 
     logger.info('==> Parsing installed packages list')
-    pkgs = run(['pacman', '-Qn'], stdout=PIPE).stdout.decode().rstrip().split('\n')
+    if hasattr(args, 'packages') and args.packages:
+        pkgs = run(['pacman', '-Qn'] + getattr(args, 'packages'), stdout=PIPE).stdout.decode().rstrip().split('\n')
+    elif hasattr(args, 'filesystem_paths') and args.filesystem_paths:
+        pkgs = [' '.join(p.rsplit(' ', 2)[1:]) for p in
+            run(['pacman', '-Qo'] + getattr(args, 'filesystem_paths'), stdout=PIPE).stdout.decode().rstrip().split('\n') if p]
+        if not pkgs:
+            quit()
+    else:
+        pkgs = run(['pacman', '-Qn'], stdout=PIPE).stdout.decode().rstrip().split('\n')
 
     logger.info('==> Collecting actual filesystem permissions and correct ones from packages')
     paths = {}
