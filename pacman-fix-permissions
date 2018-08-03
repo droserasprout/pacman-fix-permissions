@@ -76,11 +76,15 @@ def main():
             if f.name not in ['.PKGINFO', '.BUILDINFO', '.MTREE', '.INSTALL', '.CHANGELOG']:
                 p = '/' + f.name
                 if p not in paths:
-                    old_mode = int(lstat(p).st_mode & 0o7777)
-                    new_mode = int(f.mode)
-                    if old_mode != new_mode:
-                        paths[p] = {'old_mode': old_mode,
-                                    'new_mode': new_mode}
+                    try:
+                        old_mode = int(lstat(p).st_mode & 0o7777)
+                        new_mode = int(f.mode)
+                        if old_mode != new_mode:
+                            paths[p] = {'old_mode': old_mode,
+                                        'new_mode': new_mode}
+                    except FileNotFoundError as e:
+                        logger.error('File not found: {}'.format(p))
+
 
     if paths:
         logger.info('==> Scan completed. Broken permissions in your filesystem:')
