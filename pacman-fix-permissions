@@ -61,7 +61,7 @@ def main():
                             paths[p] = {'old_mode': old_mode,
                                         'new_mode': new_mode}
                     except FileNotFoundError as e:
-                        print("File not found: {}".format(e))
+                        logger.error('File not found: {}'.format(p))
 
 
     if paths:
