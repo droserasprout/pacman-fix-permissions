@@ -1,7 +1,7 @@
 #!/usr/bin/python
 import argparse
 from subprocess import run, PIPE, DEVNULL
-from os import lstat, chmod, getuid
+from os import lstat, chmod, getuid, remove
 from os.path import isfile
 import logging
 import tarfile
@@ -31,21 +31,23 @@ def getTar(pkg):
         p_arch = '/var/cache/pacman/pkg/{}-{}-{}.pkg.tar.xz'.format(pkg[0], pkg[1], arch)
         p_any = '/var/cache/pacman/pkg/{}-{}-{}.pkg.tar.xz'.format(pkg[0], pkg[1], 'any')
         if isfile(p_arch):
-            return tarfile.open(p_arch)
+            return (tarfile.open(p_arch), p_arch)
         if isfile(p_any):
-            return tarfile.open(p_any)
-        return None
+            return (tarfile.open(p_any), p_any)
+        return (None, None)
 
     arch = run(['uname', '-m'], stdout=PIPE).stdout.decode().rstrip()
     pkg = pkg.split()
-    pkgtar = _open()
+    (pkgtar, pkgtar_name) = _open()
+    pkgtar_is_dl = False
     if pkgtar is None:
         logger.info('=> {} package is missing, downloading'.format(pkg[0]))
         run(['pacman', '-Swq', '--noconfirm', pkg[0]], stdout=DEVNULL)
-        pkgtar = _open()
+        (pkgtar, pkgtar_name) = _open()
+        pkgtar_is_dl = True
     if pkgtar is None:
         raise Exception("Can't open or download '{}' package, check your internet connection".format(pkg[0]))
-    return pkgtar
+    return (pkgtar, pkgtar_name, pkgtar_is_dl)
 
 
 def main():
@@ -72,7 +74,7 @@ def main():
     paths = {}
     for i in range(len(pkgs)):
         logger.info('({}/{}) {}'.format(i+1, len(pkgs), pkgs[i]))
-        pkgtar = getTar(pkgs[i])
+        (pkgtar, pkgtar_name, pkgtar_is_dl) = getTar(pkgs[i])
         for f in pkgtar.getmembers():
             if f.name not in ['.PKGINFO', '.BUILDINFO', '.MTREE', '.INSTALL', '.CHANGELOG']:
                 p = '/' + f.name
@@ -85,6 +87,10 @@ def main():
                                         'new_mode': new_mode}
                     except FileNotFoundError:
                         logger.error('File not found: {}'.format(p))
+        pkgtar.close()
+        if pkgtar_is_dl:
+            logger.info('=> {} file was downloaded, removing'.format(pkgtar_name))
+            remove(pkgtar_name)
 
     if paths:
         logger.info('==> Scan completed. Broken permissions in your filesystem:')
