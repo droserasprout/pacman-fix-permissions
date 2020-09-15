@@ -25,6 +25,13 @@ if hasattr(args, 'packages') and getattr(args, 'packages') == []:
 if hasattr(args, 'filesystem-paths') and getattr(args, 'f') == []:
     parser.error('You must pass at least one filesystem path when using -f switch')
 
+def zflat(p):
+    import zstd
+    # this is dirty, fh and reader are never closed.
+    fh = open(p, 'rb')
+    dctx = zstd.ZstdDecompressor()
+    reader = dctx.stream_reader(fh)
+    return reader
 
 def getTar(pkg):
     def _open():
@@ -34,6 +41,13 @@ def getTar(pkg):
             return tarfile.open(p_arch)
         if isfile(p_any):
             return tarfile.open(p_any)
+
+        p_arch = '/var/cache/pacman/pkg/{}-{}-{}.pkg.tar.zst'.format(pkg[0], pkg[1], arch)
+        p_any = '/var/cache/pacman/pkg/{}-{}-{}.pkg.tar.zst'.format(pkg[0], pkg[1], 'any')
+        if isfile(p_arch):
+            return tarfile.open(fileobj=zflat(p_arch), mode='r|*')
+        if isfile(p_any):
+            return tarfile.open(fileobj=zflat(p_any), mode='r|*')
         return None
 
     arch = run(['uname', '-m'], stdout=PIPE).stdout.decode().rstrip()
