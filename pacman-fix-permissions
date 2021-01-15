@@ -5,6 +5,7 @@ from os import lstat, chmod, getuid
 from os.path import isfile
 import logging
 import tarfile
+import zstandard as zstd
 
 logging.basicConfig(level=logging.INFO, format='%(message)s')
 logger = logging.getLogger()
@@ -26,7 +27,6 @@ if hasattr(args, 'filesystem-paths') and getattr(args, 'f') == []:
     parser.error('You must pass at least one filesystem path when using -f switch')
 
 def zflat(p):
-    import zstd
     # this is dirty, fh and reader are never closed.
     fh = open(p, 'rb')
     dctx = zstd.ZstdDecompressor()
