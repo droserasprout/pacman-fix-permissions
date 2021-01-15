@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "pacman-fix-permissions"
-version = "1.1.0"
+version = "1.1.1"
 description = "fix broken filesystem permissions"
 authors = ["Lev Gorodetskiy <github@droserasprout.space>"]
 license = "GPL-3.0-only"

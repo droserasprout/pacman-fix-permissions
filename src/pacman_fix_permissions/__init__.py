@@ -9,7 +9,7 @@ from subprocess import DEVNULL, PIPE, run
 import zstandard as zstd
 
 
-__version__ = "1.1.0"
+__version__ = "1.1.1"
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 logger = logging.getLogger()
