@@ -56,6 +56,13 @@ if hasattr(args, "filesystem-paths") and getattr(args, "f") == []:
     parser.error("You must pass at least one filesystem path when using -f switch")
 
 
+def _run(*args) -> str:
+    result = run(args, stdout=PIPE)
+    if result.returncode:
+        quit(result.returncode)
+    return result.stdout.decode().strip()
+
+
 def _get_arch() -> str:
     arch = None
     with open("/etc/pacman.conf", "r") as file:
@@ -86,7 +93,7 @@ def get_package(name: str, version: str, arch: str) -> Iterator[tarfile.TarFile]
     path = _get_package_path(name, version, arch)
     if path is None:
         logger.info("=> {} package is missing, downloading".format(name))
-        run(["pacman", "-Swq", "--noconfirm", name], stdout=PIPE)
+        _run("pacman", "-Swq", "--noconfirm")
 
     path = _get_package_path(name, version, arch)
     if path is None:
@@ -116,30 +123,19 @@ def __main__():
         quit()
 
     logger.info("==> Parsing installed packages list")
-    if hasattr(args, "packages") and args.packages:
-        package_ids = (
-            run(["pacman", "-Qn"] + getattr(args, "packages"), stdout=PIPE)
-            .stdout.decode()
-            .rstrip()
-            .split("\n")
-        )
-    elif hasattr(args, "filesystem_paths") and args.filesystem_paths:
+    selected_packages = getattr(args, "packages", None)
+    selected_paths = getattr(args, "filesystem_paths", None)
+    if selected_packages:
+        package_ids = _run("pacman", "-Qn", *selected_packages).split("\n")
+    elif selected_paths:
+        output = _run("pacman", "-Qo", *selected_paths)
         package_ids = [
-            " ".join(p.rsplit(" ", 2)[1:])
-            for p in run(
-                ["pacman", "-Qo"] + getattr(args, "filesystem_paths"), stdout=PIPE
-            )
-            .stdout.decode()
-            .rstrip()
-            .split("\n")
-            if p
+            " ".join(line.split()[-2:]) for line in output.split("\n") if line
         ]
-        if not package_ids:
-            quit()
     else:
-        package_ids = (
-            run(["pacman", "-Qn"], stdout=PIPE).stdout.decode().rstrip().split("\n")
-        )
+        package_ids = _run("pacman", "-Qn").split("\n")
+    if not package_ids:
+        raise Exception("No packages selected")
 
     logger.info(
         "==> Collecting actual filesystem permissions and correct ones from packages"
