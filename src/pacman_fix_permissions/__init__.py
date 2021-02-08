@@ -85,6 +85,8 @@ def getTar(pkg):
         match = re.match(pattern, line)
         if match:
             arch = match.group(1)
+    if arch is "auto" or arch is None:
+        arch = run(["uname", "-m"], stdout=PIPE).stdout.decode().rstrip()
     pkg = pkg.split()
     pkgtar = _open()
     if pkgtar is None:
