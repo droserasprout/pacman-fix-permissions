@@ -1,6 +1,7 @@
 #!/usr/bin/python
 import argparse
 import logging
+import re
 import tarfile
 from os import chmod, getuid, lstat
 from os.path import isfile
@@ -78,7 +79,12 @@ def getTar(pkg):
             return tarfile.open(fileobj=zflat(p_any), mode="r|*")
         return None
 
-    arch = run(["uname", "-m"], stdout=PIPE).stdout.decode().rstrip()
+    file = open("/etc/pacman.conf", "r")
+    pattern = r'Architecture = (.*)'
+    for line in file:
+        match = re.match(pattern, line)
+        if match:
+            arch = match.group(1)
     pkg = pkg.split()
     pkgtar = _open()
     if pkgtar is None:
