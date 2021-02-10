@@ -29,6 +29,8 @@ PACKAGE_IGNORE = [
     ".MTREE",
     ".INSTALL",
     ".CHANGELOG",
+    # NOTE: unable to chmod
+    "boot/amd-ucode.img",
 ]
 
 __version__ = "1.1.1"
@@ -40,7 +42,7 @@ if getuid():
     logger.error("This script must be run as root.")
     sys.exit(1)
 
-parser = argparse.ArgumentParser()
+parser = argparse.ArgumentParser(prog="pacman-fix-permissions")
 mods = parser.add_mutually_exclusive_group(required=False)
 mods.add_argument(
     "-a", "--all", action="store_true", help="process all installed packages (default)"
@@ -50,14 +52,14 @@ mods.add_argument(
     "--packages",
     nargs="*",
     help="list of package names to process",
-    metavar="names",
+    metavar="NAME",
 )
 mods.add_argument(
     "-f",
     "--filesystem-paths",
     nargs="*",
     help="list of filesystem paths to process",
-    metavar="paths",
+    metavar="PATH",
 )
 cli_args = parser.parse_args()
 
