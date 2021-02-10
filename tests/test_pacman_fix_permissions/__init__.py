@@ -1,0 +1,1 @@
+import pacman_fix_permissions
