@@ -33,7 +33,7 @@ PACKAGE_IGNORE = [
     "boot/amd-ucode.img",
 ]
 
-__version__ = "1.1.1"
+__version__ = "1.1.2"
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 logger = logging.getLogger()
