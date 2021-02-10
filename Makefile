@@ -38,7 +38,7 @@ mypy:
 
 
 test:
-	${POETRY} run nosetests -v --with-timer --with-coverage tests --cover-package $(PACKAGE)
+	# ${POETRY} run nosetests -v --with-timer --with-coverage tests --cover-package $(PACKAGE)
 
 build:
 	${POETRY} build
