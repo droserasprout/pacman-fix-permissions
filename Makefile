@@ -5,7 +5,7 @@ lint: isort black pylint mypy
 all: install lint test build
 ci: all
 
-PYTHON = `python`
+PYTHON = python
 POETRY_VERSION = 1.1.4
 POETRY = ${PYTHON} ${HOME}/.poetry/bin/poetry
 
