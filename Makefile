@@ -5,8 +5,7 @@ lint: isort black pylint mypy
 all: install lint test build
 ci: all
 
-# NOTE: MacOS default, set to `python` in Linux environments
-PYTHON = `pyenv which python`
+PYTHON = `python`
 POETRY_VERSION = 1.1.4
 POETRY = ${PYTHON} ${HOME}/.poetry/bin/poetry
 
