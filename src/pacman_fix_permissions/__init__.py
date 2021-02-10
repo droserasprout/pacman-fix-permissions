@@ -1,13 +1,24 @@
 #!/usr/bin/python
+"""Fix broken filesystem permissions"""
 import argparse
 import logging
 import re
-from typing import Dict, Tuple, Iterator, Optional
+import sys
 import tarfile
-from os import chmod, getuid, lstat
+from contextlib import AbstractContextManager
+from contextlib import contextmanager
+from os import chmod
+from os import getuid
+from os import lstat
 from os.path import isfile
-from subprocess import DEVNULL, PIPE, run
-from contextlib import contextmanager, AbstractContextManager
+from subprocess import PIPE
+from subprocess import STDOUT
+from subprocess import run
+from typing import Dict
+from typing import Iterator
+from typing import Optional
+from typing import Tuple
+
 import zstandard as zstd
 
 ARCHITECTURE_REGEX = r"Architecture = (.*)"
@@ -27,7 +38,7 @@ logger = logging.getLogger()
 
 if getuid():
     logger.error("This script must be run as root.")
-    quit()
+    sys.exit(1)
 
 parser = argparse.ArgumentParser()
 mods = parser.add_mutually_exclusive_group(required=False)
@@ -48,35 +59,35 @@ mods.add_argument(
     help="list of filesystem paths to process",
     metavar="paths",
 )
-args = parser.parse_args()
+cli_args = parser.parse_args()
 
-if hasattr(args, "packages") and getattr(args, "packages") == []:
+if getattr(cli_args, "packages", None) == []:
     parser.error("You must pass at least one package name when using -p switch")
-if hasattr(args, "filesystem-paths") and getattr(args, "f") == []:
+if getattr(cli_args, "filesystem-paths", None) == []:
     parser.error("You must pass at least one filesystem path when using -f switch")
 
 
-def _run(*args) -> str:
-    result = run(args, stdout=PIPE)
-    if result.returncode:
-        quit(result.returncode)
-    return result.stdout.decode().strip()
-
-
 def _get_arch() -> str:
-    arch = None
+    """Get system architecture from pacman.conf or from uname if not set explicitly."""
+    arch = "auto"
     with open("/etc/pacman.conf", "r") as file:
         for line in file:
             match = re.match(ARCHITECTURE_REGEX, line)
             if match:
                 arch = match.group(1)
                 break
-    if arch is None or arch == "auto":
-        arch = run(["uname", "-m"], stdout=PIPE).stdout.decode().rstrip()
+    if arch == "auto":
+        result = run(
+            ("uname", "-m"),
+            check=True,
+            stdout=PIPE,
+        )
+        arch = result.stdout.decode().rstrip()
     return arch
 
 
 def _get_package_path(name: str, version: str, arch: str) -> Optional[str]:
+    """Get path to package stored in pacman cache."""
     for _arch in (arch, "any"):
         for _format in ("tar.xz", "tar.zst"):
             package_path = PACKAGE_PATH_TEMPLATE.format(
@@ -89,11 +100,15 @@ def _get_package_path(name: str, version: str, arch: str) -> Optional[str]:
 
 @contextmanager
 def get_package(name: str, version: str, arch: str) -> Iterator[tarfile.TarFile]:
+    """Open package from pacman cache, download it if missing."""
 
     path = _get_package_path(name, version, arch)
     if path is None:
-        logger.info("=> {} package is missing, downloading".format(name))
-        _run("pacman", "-Swq", "--noconfirm")
+        logger.info("=> %s package is missing, downloading", name)
+        run(
+            ("pacman", "-Swq", "--noconfirm", name),
+            check=True,
+        )
 
     path = _get_package_path(name, version, arch)
     if path is None:
@@ -115,25 +130,32 @@ def get_package(name: str, version: str, arch: str) -> Iterator[tarfile.TarFile]
 def __main__():
     arch = _get_arch()
     logger.info("==> Upgrading packages that are out-of-date")
-    res = run(["pacman", "-Fy"])
-    if res.returncode:
-        quit()
-    res = run(["pacman", "-Syyuuq", "--noconfirm"])
-    if res.returncode:
-        quit()
+    run(
+        ("pacman", "-Syu", "--noconfirm"),
+        check=True,
+    )
 
     logger.info("==> Parsing installed packages list")
-    selected_packages = getattr(args, "packages", None)
-    selected_paths = getattr(args, "filesystem_paths", None)
+    selected_packages = getattr(cli_args, "packages", [])
+    selected_paths = getattr(cli_args, "filesystem_paths", [])
     if selected_packages:
-        package_ids = _run("pacman", "-Qn", *selected_packages).split("\n")
+        result = run(
+            ("pacman", "-Qn", *selected_packages),
+            check=True,
+            stdout=PIPE,
+        )
+        package_ids = result.stdout.decode().strip().split("\n")
     elif selected_paths:
-        output = _run("pacman", "-Qo", *selected_paths)
-        package_ids = [
-            " ".join(line.split()[-2:]) for line in output.split("\n") if line
-        ]
+        result = run(("pacman", "-Qo", *selected_paths), check=True, stdout=PIPE)
+        output = result.stdout.decode().strip().split("\n")
+        package_ids = [" ".join(line.split()[-2:]) for line in output]
     else:
-        package_ids = _run("pacman", "-Qn").split("\n")
+        result = run(
+            ("pacman", "-Qn"),
+            check=True,
+            stdout=PIPE,
+        )
+        package_ids = result.stdout.decode().strip().split("\n")
     if not package_ids:
         raise Exception("No packages selected")
 
@@ -144,7 +166,7 @@ def __main__():
     package_ids_total = len(package_ids)
 
     for i, package_id in enumerate(package_ids):
-        logger.info("({}/{}) {}".format(i + 1, package_ids_total, package_id))
+        logger.info("(%i/%i) %s", i + 1, package_ids_total, package_id)
         name, version = package_id.split()
 
         with get_package(name, version, arch) as package:
@@ -162,7 +184,8 @@ def __main__():
                     if old_mode != new_mode:
                         broken_paths[path] = (old_mode, new_mode)
                 except FileNotFoundError:
-                    logger.error("File not found: {}".format(path))
+                    logger.error("File not found: %s", path)
+                    # TODO: Suggest to reinstall package
 
     if not broken_paths:
         logger.info("==> Your filesystem is fine, no action required")
@@ -171,7 +194,7 @@ def __main__():
     logger.info("==> Scan completed. Broken permissions in your filesystem:")
     for path, modes in broken_paths.items():
         old_mode, new_mode = modes
-        logging.info("{}: {} => {}".format(path, oct(old_mode), oct(new_mode)))
+        logging.info("%s: %s => %s", path, oct(old_mode), oct(new_mode))
     logger.info("==> Apply? (yes/no)")
     if input() not in ["yes", "y"]:
         logger.info("==> Done! (no actual changes were made)")
