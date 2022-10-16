@@ -2,6 +2,7 @@
 """Fix broken filesystem permissions"""
 import argparse
 import logging
+from pathlib import Path
 import re
 import sys
 import tarfile
@@ -59,6 +60,12 @@ mods.add_argument(
     help="list of filesystem paths to process",
     metavar="PATH",
 )
+parser.add_argument(
+    "-c", "--clean", action="store_true", help="clean up package cache after processing"
+)
+parser.add_argument(
+    "-v", "--version", action="version", version=f"%(prog)s {__version__}"
+)
 cli_args = parser.parse_args()
 
 if getattr(cli_args, "packages", None) == []:
@@ -99,9 +106,12 @@ def _get_package_path(name: str, version: str, arch: str) -> Optional[str]:
 
 
 @contextmanager
-def get_package(name: str, version: str, arch: str) -> Iterator[tarfile.TarFile]:
+def get_package(
+    name: str, version: str, arch: str, clean: bool = False
+) -> Iterator[tarfile.TarFile]:
     """Open package from pacman cache, download it if missing."""
 
+    downloaded = False
     path = _get_package_path(name, version, arch)
     if path is None:
         logger.info("=> %s package is missing, downloading", name)
@@ -109,6 +119,7 @@ def get_package(name: str, version: str, arch: str) -> Iterator[tarfile.TarFile]
             ("pacman", "-Swq", "--noconfirm", name),
             check=True,
         )
+        downloaded = True
 
     path = _get_package_path(name, version, arch)
     if path is None:
@@ -125,6 +136,10 @@ def get_package(name: str, version: str, arch: str) -> Iterator[tarfile.TarFile]
                     yield package
     else:
         raise Exception("Unknown package format")
+
+    if downloaded and clean:
+        logger.info("=> %s package downloaded, cleaning up", name)
+        Path(path).unlink()
 
 
 def __main__():
@@ -169,7 +184,7 @@ def __main__():
         logger.info("(%i/%i) %s", i + 1, package_ids_total, package_id)
         name, version = package_id.split()
 
-        with get_package(name, version, arch) as package:
+        with get_package(name, version, arch, cli_args.clean) as package:
             for file in package.getmembers():
                 if file.name in PACKAGE_IGNORE:
                     continue
@@ -195,8 +210,8 @@ def __main__():
     for path, modes in broken_paths.items():
         old_mode, new_mode = modes
         logging.info("%s: %s => %s", path, oct(old_mode), oct(new_mode))
-    logger.info("==> Apply? (yes/no)")
-    if input() not in ["yes", "y"]:
+    logger.info("==> Apply? [Y/n]")
+    if input().lower() in ["no", "n"]:
         logger.info("==> Done! (no actual changes were made)")
         return
 
