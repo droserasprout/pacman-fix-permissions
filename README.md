@@ -1,6 +1,6 @@
 # pacman-fix-permissions
 
-Find and fix wrong filesystem permissions on Arch Linux instance without needing to reinstall every package.
+Find and fix wrong filesystem permissions on Arch Linux instances without needing to reinstall every package.
 
 Pro tip: use [lostfiles](https://archlinux.org/packages/community/any/lostfiles/) as a companion tool to find files pacman doesn't know about.
 
@@ -26,13 +26,15 @@ make
 ## Usage
 
 ```
-usage: pacman-fix-permissions [-h] [-a | -p [NAME ...] | -f [PATH ...]]
+usage: pacman-fix-permissions [-h] [-a | -p [NAME ...] | -f [PATH ...]] [-c] [-v]
 
-optional arguments:
+options:
   -h, --help            show this help message and exit
   -a, --all             process all installed packages (default)
   -p [NAME ...], --packages [NAME ...]
                         list of package names to process
   -f [PATH ...], --filesystem-paths [PATH ...]
                         list of filesystem paths to process
+  -c, --clean           clean up package cache after processing
+  -v, --version         show program's version number and exit
 ```
