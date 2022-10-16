@@ -5,14 +5,12 @@ import logging
 import re
 import sys
 import tarfile
-from contextlib import AbstractContextManager
 from contextlib import contextmanager
 from os import chmod
 from os import getuid
 from os import lstat
 from os.path import isfile
 from subprocess import PIPE
-from subprocess import STDOUT
 from subprocess import run
 from typing import Dict
 from typing import Iterator
