@@ -4,10 +4,10 @@ install:
 	poetry install `if [ "${DEV}" = "0" ]; then echo "--no-dev"; fi`
 
 isort:
-	isort src tests
+	poetry run isort src tests
 
 black:
-	black --skip-string-normalization src tests
+	poetry run black --skip-string-normalization src tests
 
 mypy:
-	mypy src tests
+	poetry run mypy src tests
