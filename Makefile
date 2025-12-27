@@ -1,13 +1,14 @@
-lint: isort black mypy
-
 install:
-	poetry install `if [ "${DEV}" = "0" ]; then echo "--no-dev"; fi`
+	uv sync
 
-isort:
-	poetry run isort src tests
+update:
+	uv sync -U
 
-black:
-	poetry run black --skip-string-normalization src tests
+lint: ruff mypy
+
+ruff:
+	uv run ruff format src tests
+	uv run ruff check src tests
 
 mypy:
-	poetry run mypy src tests
+	uv run mypy src tests

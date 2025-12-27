@@ -1,32 +1,30 @@
-[tool.poetry]
+[project]
 name = "pacman-fix-permissions"
 version = "1.1.2"
 description = "Fix broken filesystem permissions"
-authors = ["Lev Gorodetskiy <github@droserasprout.space>"]
-license = "GPL-3.0-or-later"
+authors = [
+    { name = "Lev Gorodetskii", email = "github@drsr.io" }
+]
+requires-python = ">=3.10,<4"
 readme = "README.md"
-homepage = "https://github.com/droserasprout/pacman-fix-permissions"
-repository = "https://github.com/droserasprout/pacman-fix-permissions"
-packages = [
-    { include = "pacman_fix_permissions", from = "src" },
+license = "GPL-3.0-or-later"
+dependencies = [
+    "zstandard"
 ]
 
-[tool.poetry.scripts]
-pacman-fix-permissions = 'pacman_fix_permissions:__main__'
+[project.urls]
+Homepage = "https://github.com/droserasprout/pacman-fix-permissions"
+Repository = "https://github.com/droserasprout/pacman-fix-permissions"
 
-[tool.poetry.dependencies]
-python = "^3.6"
-zstandard = "^0.18.0"
+[project.scripts]
+pacman-fix-permissions = "pacman_fix_permissions:__main__"
 
-[tool.poetry.dev-dependencies]
-black = "*"
-isort = "*"
-mypy = "*"
-
-[tool.isort]
-force_single_line = true
-line_length = 140
+[dependency-groups]
+dev = [
+    "ruff",
+    "mypy",
+]
 
 [build-system]
-requires = ["poetry_core>=1.0.0"]
-build-backend = "poetry.masonry.api"
+requires = ["uv_build"]
+build-backend = "uv_build"
