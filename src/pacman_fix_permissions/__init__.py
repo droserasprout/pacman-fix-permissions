@@ -1,5 +1,6 @@
 #!/usr/bin/python
 """Fix broken filesystem permissions"""
+
 import argparse
 import logging
 from pathlib import Path
@@ -74,40 +75,40 @@ if getattr(cli_args, "filesystem-paths", None) == []:
     parser.error("You must pass at least one filesystem path when using -f switch")
 
 
-def _get_arch() -> str:
+def _get_arch() -> set[str]:
     """Get system architecture from pacman.conf or from uname if not set explicitly."""
-    arch = "auto"
+    if "CachyOS Linux" in Path("/etc/os-release").read_text():
+        return {"any", "x86_64", "x86_64_v3", "x86_64_v4"}
+
     with open("/etc/pacman.conf", "r") as file:
         for line in file:
             match = re.match(ARCHITECTURE_REGEX, line)
-            if match:
-                arch = match.group(1)
-                break
-    if arch == "auto":
-        result = run(
-            ("uname", "-m"),
-            check=True,
-            stdout=PIPE,
-        )
-        arch = result.stdout.decode().rstrip()
-    return arch
+            if match and match.group(1) != "auto":
+                return {"any", match.group(1)}
+
+    result = run(
+        ("uname", "-m"),
+        check=True,
+        stdout=PIPE,
+    )
+    arch = result.stdout.decode().rstrip()
+    return {"any", arch}
 
 
-def _get_package_path(name: str, version: str, arch: str) -> Optional[str]:
+def _get_package_path(name: str, version: str, arch: set[str]) -> Optional[str]:
     """Get path to package stored in pacman cache."""
-    for _arch in (arch, "any"):
-        for _format in ("tar.xz", "tar.zst"):
-            package_path = PACKAGE_PATH_TEMPLATE.format(
-                name=name, version=version, arch=_arch, format=_format
-            )
-            if isfile(package_path):
-                return package_path
+    for _arch in arch:
+        package_path = PACKAGE_PATH_TEMPLATE.format(
+            name=name, version=version, arch=_arch, format="tar.zst"
+        )
+        if isfile(package_path):
+            return package_path
     return None
 
 
 @contextmanager
 def get_package(
-    name: str, version: str, arch: str, clean: bool = False
+    name: str, version: str, arch: set[str], clean: bool = False
 ) -> Iterator[tarfile.TarFile]:
     """Open package from pacman cache, download it if missing."""
 
@@ -123,7 +124,7 @@ def get_package(
 
     path = _get_package_path(name, version, arch)
     if path is None:
-        raise Exception
+        raise Exception("Can't find file")
 
     if path.endswith("xz"):
         with tarfile.open(path) as package:
@@ -142,7 +143,7 @@ def get_package(
         Path(path).unlink()
 
 
-def __main__():
+def __main__() -> None:
     arch = _get_arch()
     logger.info("==> Upgrading packages that are out-of-date")
     run(

@@ -1,1 +1,1 @@
-import pacman_fix_permissions
+import pacman_fix_permissions  # noqa: F401
