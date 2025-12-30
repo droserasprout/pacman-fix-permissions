@@ -2,6 +2,7 @@
 """Fix broken filesystem permissions"""
 
 import argparse
+import importlib.metadata
 import logging
 from pathlib import Path
 import re
@@ -21,6 +22,8 @@ from typing import Tuple
 
 import zstandard as zstd
 
+__version__ = importlib.metadata.version(__name__)
+
 ARCHITECTURE_REGEX = r"Architecture = (.*)"
 PACKAGE_PATH_TEMPLATE = "/var/cache/pacman/pkg/{name}-{version}-{arch}.pkg.{format}"
 PACKAGE_IGNORE = [
@@ -32,8 +35,6 @@ PACKAGE_IGNORE = [
     # NOTE: unable to chmod
     "boot/amd-ucode.img",
 ]
-
-__version__ = "1.1.2"
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 logger = logging.getLogger()

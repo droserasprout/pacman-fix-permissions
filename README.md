@@ -1,26 +1,30 @@
 # pacman-fix-permissions
 
-Find and fix wrong filesystem permissions on Arch Linux instances without needing to reinstall every package.
+When updating packages with pacman you could see the following warning:
 
-Pro tip: use [lostfiles](https://archlinux.org/packages/community/any/lostfiles/) as a companion tool to find files pacman doesn't know about.
+```text
+warning: directory permissions differ on /etc/NetworkManager/system-connections/
+filesystem: 600  package: 700
+```
+
+This script helps to find and fix wrong filesystem permissions on Arch Linux without reinstalling every package. It downloads package archives and compares directory trees with actual filesystem.
+
+WARNING: It will spend a lot of your internet trafic and storage space!
 
 ## Installation
 
 ### From [AUR](https://aur.archlinux.org/packages/pacman-fix-permissions)
 
-```shell-script
-# replace with your favourite AUR helper
-yay -S pacman-fix-permissions
+```shell
+# replace with your favorite AUR helper
+paru -S pacman-fix-permissions
 ```
 
 ### Local
 
-```shell-script
-# install required dependencies only and build package
-DEV=0 make install
-make build
-# or prepare dev environment and run all checks
-make
+```shell
+make install
+source .venv/bin/activate
 ```
 
 ## Usage
@@ -38,3 +42,7 @@ options:
   -c, --clean           clean up package cache after processing
   -v, --version         show program's version number and exit
 ```
+
+___
+
+Pro tip: use [lostfiles](https://archlinux.org/packages/community/any/lostfiles/) as a companion tool to find files pacman doesn't know about.
